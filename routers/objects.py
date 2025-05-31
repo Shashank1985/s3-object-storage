@@ -165,3 +165,71 @@ async def get_object(
         media_type=content_type, 
         headers=response_headers
     )
+
+@router.delete("/{bucket_name}/{object_key:path}", status_code=status.HTTP_204_NO_CONTENT, tags=["Objects"])
+async def delete_object(
+    bucket_name: str,
+    object_key: str,
+    db: sqlite3.Connection = Depends(get_db)
+):
+    cursor = db.cursor()
+
+    try:
+        cursor.execute("""
+            SELECT storage_path
+            FROM objects
+            WHERE bucket_name = ? AND object_key = ?
+        """, (bucket_name, object_key))
+        object_meta = cursor.fetchone()
+    except Exception as e:
+        print(f"DB Error during delete_object metadata lookup: {type(e).__name__} - {str(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                            detail=f"Database error retrieving object metadata: {str(e)}")
+
+    if not object_meta:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                            detail=f"Object '{object_key}' not found in bucket '{bucket_name}'")
+
+    storage_path = object_meta["storage_path"]
+
+    file_deleted_successfully = False
+    if os.path.exists(storage_path):
+        try:
+            os.remove(storage_path)
+            print(f"Successfully deleted file from disk: {storage_path}")
+            file_deleted_successfully = True
+            current_dir = os.path.dirname(storage_path)
+            bucket_root_object_dir = os.path.join(config.OBJECT_STORAGE_DIR, bucket_name)
+            while current_dir != bucket_root_object_dir and not os.listdir(current_dir):
+                try:
+                    os.rmdir(current_dir)
+                    print(f"Successfully removed empty directory: {current_dir}")
+                    current_dir = os.path.dirname(current_dir)
+                except OSError as e:
+                    print(f"Could not remove directory {current_dir}: {e}. Stopping cleanup.")
+                    break 
+            
+        except OSError as e:
+            print(f"Error deleting file from disk {storage_path}: {e}")
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                                detail=f"Failed to delete object data from storage: {e}")
+    else:
+        print(f"WARNING: File not found at {storage_path} for object '{object_key}' in bucket '{bucket_name}', but metadata exists. Proceeding to delete metadata.")
+        file_deleted_successfully = True # Treat as "successfully handled" from data perspective
+
+    if file_deleted_successfully:
+        try:
+            cursor.execute("""
+                DELETE FROM objects
+                WHERE bucket_name = ? AND object_key = ?
+            """, (bucket_name, object_key))
+            db.commit()
+            print(f"Successfully deleted metadata for object '{object_key}' in bucket '{bucket_name}'")
+        except Exception as e:
+            db.rollback() 
+            print(f"CRITICAL: File at {storage_path} was deleted (or missing), but DB metadata deletion failed: {type(e).__name__} - {str(e)}")
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                                detail=f"Object data deleted, but failed to delete metadata: {str(e)}")
+    
+    # For a successful DELETE, S3 returns 204 No Content with an empty body
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
