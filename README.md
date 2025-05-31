@@ -1,0 +1,1 @@
+Heavily oversimplified implementation of AWS S3 in python as a learning project
