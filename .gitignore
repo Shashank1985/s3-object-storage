@@ -3,3 +3,5 @@ __pycache__/
 *.pyc
 *.env
 .DS_Store
+config.py
+s3_service_data/
