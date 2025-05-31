@@ -13,4 +13,6 @@ API endpoints for objects:
 3. delete object from bucket (DELETE /objects/{bucket_name}/{object_path})
 
 **How to run**
-
+1. Clone the repo
+2. pip install -r requirements.txt
+3. use curl or postman to test out the api endpoints
