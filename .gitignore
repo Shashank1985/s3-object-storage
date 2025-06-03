@@ -5,3 +5,4 @@ __pycache__/
 .DS_Store
 config.py
 s3_service_data/
+s3_app_data/
