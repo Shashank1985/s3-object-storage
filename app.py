@@ -13,6 +13,24 @@ from db import init_db, get_db
 from routers import buckets as buckets_router # Import the bucket router
 from routers import objects as objects_router
 
+
+async def verify_api_key(api_key_from_header: str = Header(None, alias=config.API_KEY_HEADER_NAME)):
+    """
+    FastAPI Dependency to verify the API key.
+    It expects the API key in the header defined by config.API_KEY_HEADER_NAME.
+    """
+    if api_key_from_header is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"API Key required in '{config.API_KEY_HEADER_NAME}' header"
+        )
+    if api_key_from_header not in config.ALLOWED_API_KEYS:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Invalid API Key provided"
+        )
+    return api_key_from_header 
+
 @asynccontextmanager
 async def lifespan(app_instance: FastAPI): 
     print("Application startup...")
@@ -32,8 +50,8 @@ app = FastAPI(
     lifespan=lifespan # Use the lifespan context manager
 )
 
-app.include_router(buckets_router.router) # This uses the prefix from buckets.py
-app.include_router(objects_router.router) # This uses paths as defined in objects.py
+app.include_router(buckets_router.router,dependencies=[Depends(verify_api_key)]) # This uses the prefix from buckets.py
+app.include_router(objects_router.router,dependencies=[Depends(verify_api_key)]) # This uses paths as defined in objects.py
 
 
 # --- API Endpoints ---
