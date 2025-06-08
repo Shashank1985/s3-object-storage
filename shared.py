@@ -1,6 +1,12 @@
 import os
 import config
 import sqlite3
+from cachetools import LRUCache
+
+#DEFINE CACHE FOR OBJECT METADATA
+METADATA_CACHE = LRUCache(maxsize=config.OBJECT_METADATA_CACHE_SIZE)
+
+
 def init_db():
     """Initializes the database and creates tables if they don't exist."""
     os.makedirs(config.METADATA_DIR, exist_ok=True) 

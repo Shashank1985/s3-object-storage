@@ -8,11 +8,11 @@ import uvicorn
 import hashlib 
 import mimetypes
 import config 
+from cachetools import LRUCache
 from fastapi.responses import StreamingResponse
-from db import init_db, get_db
+from shared import init_db, get_db
 from routers import buckets as buckets_router # Import the bucket router
 from routers import objects as objects_router
-
 
 async def verify_api_key(api_key_from_header: str = Header(None, alias=config.API_KEY_HEADER_NAME)):
     """
@@ -37,9 +37,6 @@ async def lifespan(app_instance: FastAPI):
     os.makedirs(config.DATA_DIR_BASE, exist_ok=True) 
     init_db() 
     print("Toy S3 Service (SQLite Backend & Config File) started.")
-    print(f"Data will be stored in: {os.path.abspath(config.DATA_DIR_BASE)}")
-    print(f"Object data in: {os.path.abspath(config.OBJECT_STORAGE_DIR)}")
-    print(f"Metadata database: {os.path.abspath(config.DATABASE_URL)}")
     yield
     print("Application shutdown...")
 

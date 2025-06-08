@@ -9,7 +9,7 @@ import hashlib
 import mimetypes
 import config 
 from fastapi.responses import StreamingResponse
-from db import get_db
+from shared import get_db
 
 router = APIRouter(
     prefix="/buckets",  # Optional: prefix for all routes in this router
